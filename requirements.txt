@@ -1,0 +1,9 @@
+metadrive-simulator
+stable-baselines3[extra]
+gymnasium
+torch
+tensorboard
+imageio
+imageio-ffmpeg
+matplotlib
+numpy
