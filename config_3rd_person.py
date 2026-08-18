@@ -17,7 +17,7 @@ METADRIVE_CONFIG = dict(
     # Teacher demo used:
     # map="S" for simple environment test
     # map="XSSORC" for longer mixed road layout
-    map="S",
+    map="SO",
 
     # 0.0 = no NPC traffic, easier for first RL training.
     # Try 0.1 or 0.2 after your agent can drive on empty roads.
@@ -29,35 +29,17 @@ METADRIVE_CONFIG = dict(
     # Useful when running in notebooks or repeated scripts.
     force_render_fps=30,
 
-    # Number of random scenarios available from start_seed.
-    # This must be at least 1; zero makes every scenario seed invalid.
-    num_scenarios=1,
-
+    num_scenarios=50,
     start_seed=0,
 
-     # ===== Vision observation =====
-    image_observation=True,
+    # 降低高速獎勵
+    speed_reward=0.05,
 
-    # RGB camera
-    sensors={
-        "rgb_camera": (
-            RGBCamera,
-            84,
-            84,
-        )
-    },
+    # 保留前進獎勵
+    driving_reward=1.0,
 
-    # Tell the vehicle which camera is used as observation
-    vehicle_config={
-        "image_source": "rgb_camera",
-    },
-
-    # Number of consecutive frames
-    stack_size=3,
-
-    # Normalize RGB values to 0~1
-    norm_pixel=True,
-
-    # ===== Reward =====
-    # use_lateral_reward=True,
+    # 提高失控懲罰
+    out_of_road_penalty=10.0,
+    crash_vehicle_penalty=10.0,
+    crash_object_penalty=10.0,
 )

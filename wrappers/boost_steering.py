@@ -17,10 +17,10 @@ class SteeringBoostWrapper(gym.ActionWrapper):
 
         return action
 
-    def reset(self, **kwargs):
+    def reset(self, *, seed=None, options=None):
         self.last_steering = 0.0
-        kwargs.pop("options", None)
-        return self.env.reset(**kwargs)
+        # MetaDrive 0.4.3 does not accept Gymnasium's ``options`` argument.
+        return self.env.reset(seed=seed)
 
     def render(self, *args, **kwargs):
         return self.env.render(*args, **kwargs)

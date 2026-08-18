@@ -12,6 +12,10 @@ def make_metadrive_env(config_override=None):
     if config_override:
         config.update(config_override)
 
+    print("num_scenarios =", config.get("num_scenarios"))
+    print("start_seed =", config.get("start_seed"))
+    print("map =", config.get("map"))
+
     env = MetaDriveEnv(config)
 
     env = SteeringBoostWrapper(
@@ -21,7 +25,7 @@ def make_metadrive_env(config_override=None):
 
     env = TurnSlowDownWrapper(
         env,
-        max_throttle=0.45,
+        max_throttle=0.3,
         turn_slow_factor=1.0
     )
 

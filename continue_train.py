@@ -9,9 +9,10 @@ from env_utils import build_vec_env
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--timesteps", type=int, default=100_000)
+    parser.add_argument("--timesteps", type=int, default=25_000)
     parser.add_argument("--model-path", type=str, default=str(MODEL_PATH))
-    parser.add_argument("--checkpoint-freq", type=int, default=25_000)
+    parser.add_argument("--checkpoint-freq", type=int, default=5_000)
+    parser.add_argument("--learning-rate", type=float, default=None)
     args = parser.parse_args()
 
     MODEL_DIR.mkdir(exist_ok=True)
@@ -23,6 +24,17 @@ def main():
 
     env = build_vec_env()
     model = PPO.load(args.model_path, env=env, device=device)
+
+    model.learning_rate = 1e-4
+    model.lr_schedule = lambda _: 1e-4
+
+    if args.learning_rate is not None:
+        lr = args.learning_rate
+
+        model.learning_rate = lr
+        model.lr_schedule = lambda _: lr
+
+        print(f"Override learning rate: {lr}")
 
     checkpoint_callback = CheckpointCallback(
         save_freq=args.checkpoint_freq,

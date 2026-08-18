@@ -10,10 +10,12 @@ from env_utils import build_vec_env
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--timesteps", type=int, default=100_000)
+    parser.add_argument("--timesteps", type=int, default=50_000)
     parser.add_argument("--model-path", type=str, default=str(MODEL_PATH))
-    parser.add_argument("--checkpoint-freq", type=int, default=25_000)
+    parser.add_argument("--checkpoint-freq", type=int, default=5_000)
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--learning-rate", type=float, default=None)
+
     args = parser.parse_args()
 
     MODEL_DIR.mkdir(exist_ok=True)
@@ -30,7 +32,7 @@ def main():
         env,
         verbose=1,
         device=device,
-        seed=args.seed,
+        # seed=args.seed,
         tensorboard_log=str(LOG_DIR),
         learning_rate=3e-4,
         n_steps=1024,
