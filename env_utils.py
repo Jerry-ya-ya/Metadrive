@@ -3,7 +3,6 @@ from stable_baselines3.common.vec_env import DummyVecEnv, VecMonitor
 
 from config import METADRIVE_CONFIG
 
-from wrappers.boost_steering import SteeringBoostWrapper
 from wrappers.turn_slowdown import TurnSlowDownWrapper
 
 def make_metadrive_env(config_override=None):
@@ -18,15 +17,10 @@ def make_metadrive_env(config_override=None):
 
     env = MetaDriveEnv(config)
 
-    env = SteeringBoostWrapper(
-        env,
-        steering_scale=1.5
-    )
-
     env = TurnSlowDownWrapper(
         env,
-        max_throttle=0.3,
-        turn_slow_factor=1.0
+        max_throttle = 0.6,
+        turn_slow_factor = 0.8,
     )
 
     return env

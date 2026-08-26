@@ -53,7 +53,7 @@ METADRIVE_CONFIG = dict(
     },
 
     # Number of consecutive frames
-    stack_size=3,
+    stack_size=1,
 
     # Normalize RGB values to 0~1
     norm_pixel=True,

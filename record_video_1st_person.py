@@ -1,5 +1,6 @@
 import argparse
 from pathlib import Path
+import numpy as np
 
 import imageio
 import torch
@@ -13,7 +14,7 @@ import cv2
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model-path", type=str, default=str(MODEL_PATH))
-    parser.add_argument("--output", type=str, default=str(VIDEO_DIR / "metadrive_driving_video.mp4"))
+    parser.add_argument("--output", type=str, default=str(VIDEO_DIR / "metadrive_driving_1stp_video.mp4"))
     parser.add_argument("--steps", type=int, default=100000)
     parser.add_argument("--fps", type=int, default=30)
     parser.add_argument("--screen-size", type=int, default=600)
@@ -40,15 +41,22 @@ def main():
 
     print("Recording 1st person driving video...")
 
+    steering_values = []
+    throttle_values = []
+
     for _ in range(args.steps):
         action, _states = model.predict(obs, deterministic=True)
+
+        steering = float(action[0])
+        throttle_values.append(float(action[1]))
+        steering_values.append(steering)
+        
         obs, reward, terminated, truncated, info = env.step(action)
 
         total_reward += float(reward)
         steps += 1
 
         frame = obs["image"][..., -1]
-
         frame = (frame * 255).clip(0, 255).astype("uint8")
 
         frame = cv2.resize(
@@ -59,11 +67,30 @@ def main():
 
         frames.append(frame)
 
+        print("Action:", action)
+        print("Action shape:", action.shape)
+
         if terminated or truncated:
             break
 
     print_scoreboard(total_reward, steps, info)
 
+    print("\n===== Features Extractor =====")
+    print(model.policy.features_extractor)
+    print(env.observation_space)
+    print(type(model.policy.features_extractor))
+
+    print("\n===== Steering =====")
+    print("Mean:", np.mean(steering_values))
+    print("Std:", np.std(steering_values))
+    print("Min:", np.min(steering_values))
+    print("Max:", np.max(steering_values))
+
+    print("\n===== Throttle =====")
+    print("Mean:", np.mean(throttle_values))
+    print("Std:", np.std(throttle_values))
+    print("Min:", np.min(throttle_values))
+    print("Max:", np.max(throttle_values))
     env.close()
 
     output_path = Path(args.output)

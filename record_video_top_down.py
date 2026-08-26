@@ -11,7 +11,7 @@ from env_utils import make_metadrive_env, print_scoreboard
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model-path", type=str, default=str(MODEL_PATH))
-    parser.add_argument("--output", type=str, default=str(VIDEO_DIR / "metadrive_driving_video.mp4"))
+    parser.add_argument("--output", type=str, default=str(VIDEO_DIR / "metadrive_driving_td_video.mp4"))
     parser.add_argument("--steps", type=int, default=100000)
     parser.add_argument("--fps", type=int, default=30)
     parser.add_argument("--screen-size", type=int, default=600)

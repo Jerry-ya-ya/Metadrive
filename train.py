@@ -39,6 +39,9 @@ def main():
         batch_size=64,
         n_epochs=10,
         gamma=0.99,
+        policy_kwargs=dict(
+            normalize_images=False
+        ),
     )
 
     checkpoint_callback = CheckpointCallback(
