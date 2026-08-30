@@ -15,3 +15,4 @@
 ## 2026/08/30
 
 - Add image observation preprocessing and update training and video diagnostics.
+- Ignore Python cache files and directories.
