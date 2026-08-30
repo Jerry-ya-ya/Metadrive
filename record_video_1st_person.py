@@ -56,9 +56,16 @@ def main():
         total_reward += float(reward)
         steps += 1
 
-        frame = obs["image"][..., -1]
+        # PPO receives CHW image: (3, 84, 84)
+        frame = obs["image"]
+
+        # Convert back to HWC for video: (84, 84, 3)
+        frame = np.transpose(frame, (1, 2, 0))
+
+        # float32 [0, 1] -> uint8 [0, 255]
         frame = (frame * 255).clip(0, 255).astype("uint8")
 
+        # Enlarge video
         frame = cv2.resize(
             frame,
             (672, 672),
@@ -73,12 +80,12 @@ def main():
         if terminated or truncated:
             break
 
-    print_scoreboard(total_reward, steps, info)
-
     print("\n===== Features Extractor =====")
     print(model.policy.features_extractor)
     print(env.observation_space)
     print(type(model.policy.features_extractor))
+
+    print_scoreboard(total_reward, steps, info)
 
     print("\n===== Steering =====")
     print("Mean:", np.mean(steering_values))

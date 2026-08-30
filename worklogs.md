@@ -11,3 +11,7 @@
 ## 2026/08/26
 
 - Add no-steering test and model observation, and update wrapper.
+
+## 2026/08/30
+
+- Add image observation preprocessing and update training and video diagnostics.

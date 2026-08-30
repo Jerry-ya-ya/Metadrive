@@ -27,6 +27,9 @@ def main():
 
     env = build_vec_env()
 
+    print("\n===== Observation Space =====")
+    print(env.observation_space)
+
     model = PPO(
         "MultiInputPolicy",
         env,
@@ -43,6 +46,9 @@ def main():
             normalize_images=False
         ),
     )
+
+    print("\n===== Observation Features =====")
+    print(model.policy.features_extractor)
 
     checkpoint_callback = CheckpointCallback(
         save_freq=args.checkpoint_freq,

@@ -2,7 +2,6 @@ import numpy as np
 
 from env_utils import make_metadrive_env
 
-
 def main():
     env = make_metadrive_env()
 

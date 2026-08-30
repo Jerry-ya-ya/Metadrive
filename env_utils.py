@@ -4,6 +4,7 @@ from stable_baselines3.common.vec_env import DummyVecEnv, VecMonitor
 from config import METADRIVE_CONFIG
 
 from wrappers.turn_slowdown import TurnSlowDownWrapper
+from wrappers.squeeze_image_stack import ImagePreprocessWrapper
 
 def make_metadrive_env(config_override=None):
     config = dict(METADRIVE_CONFIG)
@@ -22,6 +23,8 @@ def make_metadrive_env(config_override=None):
         max_throttle = 0.6,
         turn_slow_factor = 0.8,
     )
+
+    env = ImagePreprocessWrapper(env)
 
     return env
 
