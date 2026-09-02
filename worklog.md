@@ -15,4 +15,9 @@
 ## 2026/08/30
 
 - Add image observation preprocessing and update training and video diagnostics.
+
 - Ignore Python cache files and directories.
+
+## 2026/09/03
+
+- Organize MetaDrive utilities and add multi-seed curve evaluation.

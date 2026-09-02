@@ -67,13 +67,13 @@ python train.py --timesteps 10000
 More serious training:
 
 ```bash
-python train.py --timesteps 500000
+python train.py --timesteps 50000
 ```
 
 ## Continue Training
 
 ```bash
-python continue_train.py --timesteps 500000
+python continue_train.py --timesteps 50000
 ```
 
 ## Evaluate

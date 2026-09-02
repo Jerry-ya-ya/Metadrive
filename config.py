@@ -17,7 +17,7 @@ METADRIVE_CONFIG = dict(
     # Teacher demo used:
     # map="S" for simple environment test
     # map="XSSORC" for longer mixed road layout
-    map="S",
+    map="C",
 
     # 0.0 = no NPC traffic, easier for first RL training.
     # Try 0.1 or 0.2 after your agent can drive on empty roads.
@@ -31,7 +31,7 @@ METADRIVE_CONFIG = dict(
 
     # Number of random scenarios available from start_seed.
     # This must be at least 1; zero makes every scenario seed invalid.
-    num_scenarios=1,
+    num_scenarios=5,
 
     start_seed=0,
 

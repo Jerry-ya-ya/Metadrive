@@ -11,3 +11,4 @@ __pycache__/
 /models
 /outputs
 /videos
+curve_seed_results.csv
