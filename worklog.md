@@ -21,3 +21,7 @@
 ## 2026/09/03
 
 - Organize MetaDrive utilities and add multi-seed curve evaluation.
+
+## 2026/09/07
+
+- Add curve seed statistics and make utility scripts runnable from subdirectories.

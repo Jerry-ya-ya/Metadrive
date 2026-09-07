@@ -1,3 +1,13 @@
+import sys
+from pathlib import Path
+
+# Allow both of these invocation styles:
+#   python env_check/preview_map.py
+#   python -m env_check.preview_map
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
 import argparse
 
 import torch

@@ -31,9 +31,9 @@ METADRIVE_CONFIG = dict(
 
     # Number of random scenarios available from start_seed.
     # This must be at least 1; zero makes every scenario seed invalid.
-    num_scenarios=5,
+    num_scenarios=85,
 
-    start_seed=0,
+    start_seed=1,
 
      # ===== Vision observation =====
     image_observation=True,
