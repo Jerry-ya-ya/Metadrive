@@ -25,3 +25,7 @@
 ## 2026/09/07
 
 - Add curve seed statistics and make utility scripts runnable from subdirectories.
+
+## 2026/09/11
+
+- Add seeded SC-curve recording with steering stability diagnostics.

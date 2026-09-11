@@ -8,6 +8,8 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+# python -m record.1st_person --seed 85
+
 import argparse
 from pathlib import Path
 import numpy as np
@@ -28,6 +30,8 @@ def main():
     parser.add_argument("--steps", type=int, default=100000)
     parser.add_argument("--fps", type=int, default=30)
     parser.add_argument("--screen-size", type=int, default=600)
+    parser.add_argument("--seed", type=int, default=0)
+
     args = parser.parse_args()
 
     VIDEO_DIR.mkdir(exist_ok=True)
@@ -35,7 +39,12 @@ def main():
     device = "cuda" if torch.cuda.is_available() else "cpu"
     model = PPO.load(args.model_path, device=device)
 
-    env = make_metadrive_env()
+    env = make_metadrive_env({
+    "map": "SC",
+    "start_seed": args.seed,
+    "num_scenarios": 1,
+    })
+
     obs, info = env.reset()
 
     print(env.observation_space)
@@ -108,6 +117,22 @@ def main():
     print("Std:", np.std(throttle_values))
     print("Min:", np.min(throttle_values))
     print("Max:", np.max(throttle_values))
+
+    steering_changes = np.diff(steering_values)
+
+    print("\n===== Steering Stability =====")
+    print("Mean abs delta:",
+        np.mean(np.abs(steering_changes)))
+
+    print("Max abs delta:",
+        np.max(np.abs(steering_changes)))
+
+    print("Sign changes:",
+        np.sum(
+            np.sign(steering_values[1:])
+            != np.sign(steering_values[:-1])
+        ))
+
     env.close()
 
     output_path = Path(args.output)

@@ -42,7 +42,7 @@ def get_curve_info(env):
 
 def evaluate_one_seed(model, seed):
     env = make_metadrive_env({
-        "map": "C",
+        "map": "SC",
         "start_seed": seed,
         "num_scenarios": 1,
     })

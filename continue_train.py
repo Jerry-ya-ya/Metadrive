@@ -1,3 +1,5 @@
+# python continue_train.py --timesteps 50000 --learning-rate 1e-4
+
 import argparse
 
 import torch
