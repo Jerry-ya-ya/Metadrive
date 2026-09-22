@@ -7,7 +7,7 @@ __pycache__/
 /.venv
 /checkpoints
 /logs
-/model_backup
+/models_backup
 /models
 /outputs
 /videos

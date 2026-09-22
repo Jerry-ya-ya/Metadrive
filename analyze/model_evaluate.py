@@ -1,80 +1,122 @@
+import argparse
 import sys
 from pathlib import Path
 
-# Allow both of these invocation styles:
-#   python env_check/preview_map.py
-#   python -m env_check.preview_map
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-import argparse
-
 import torch
 from stable_baselines3 import PPO
 
-from config import MODEL_PATH
-from env_utils import make_metadrive_env, print_scoreboard
+from config import MODEL_PATH, OUTPUT_DIR
+from env_utils import get_final_status, make_metadrive_env
+
 
 def run_one_episode(model, max_steps):
     env = make_metadrive_env()
-    obs, info = env.reset()
+    try:
+        obs, info = env.reset()
+        total_reward = 0.0
+        steps = 0
 
-    total_reward = 0.0
-    steps = 0
+        for _ in range(max_steps):
+            action, _states = model.predict(obs, deterministic=True)
+            obs, reward, terminated, truncated, info = env.step(action)
+            total_reward += float(reward)
+            steps += 1
 
-    for _ in range(max_steps):
-        action, _states = model.predict(obs, deterministic=True)
-        obs, reward, terminated, truncated, info = env.step(action)
+            if terminated or truncated:
+                break
 
-        total_reward += float(reward)
-        steps += 1
+        return {
+            "reward": total_reward,
+            "completion": info.get("route_completion", 0.0) * 100,
+            "steps": steps,
+            "status": get_final_status(info),
+        }
+    finally:
+        env.close()
 
-        if terminated or truncated:
-            break
 
-    env.close()
-    return total_reward, steps, info
+def evaluate_model(model, episodes=5, max_steps=1000):
+    if episodes < 1:
+        raise ValueError("episodes must be at least 1")
+    if max_steps < 1:
+        raise ValueError("max_steps must be at least 1")
+
+    return [run_one_episode(model, max_steps) for _ in range(episodes)]
+
+
+def format_evaluation_report(results, model_path):
+    lines = [
+        "MetaDrive Model Evaluation",
+        "=" * 48,
+        f"Model             : {model_path}",
+        f"Episodes          : {len(results)}",
+        "",
+    ]
+
+    for index, result in enumerate(results, start=1):
+        lines.append(
+            f"Episode {index:02d} | "
+            f"reward={result['reward']:.2f} | "
+            f"completion={result['completion']:.1f}% | "
+            f"steps={result['steps']} | "
+            f"status={result['status']}"
+        )
+
+    mean_reward = sum(item["reward"] for item in results) / len(results)
+    mean_completion = sum(item["completion"] for item in results) / len(results)
+    statuses = [item["status"] for item in results]
+
+    lines.extend([
+        "",
+        "Evaluation Summary",
+        "=" * 48,
+        f"Mean reward       : {mean_reward:.2f}",
+        f"Mean completion   : {mean_completion:.1f}%",
+        f"Statuses          : {statuses}",
+    ])
+    return "\n".join(lines) + "\n"
+
+
+def save_evaluation_report(results, model_path, output_path):
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(
+        format_evaluation_report(results, model_path),
+        encoding="utf-8",
+    )
+    return output_path
+
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model-path", type=str, default=str(MODEL_PATH))
     parser.add_argument("--episodes", type=int, default=5)
     parser.add_argument("--max-steps", type=int, default=1000)
+    parser.add_argument(
+        "--output",
+        type=str,
+        default=str(OUTPUT_DIR / "model_evaluation.txt"),
+    )
     args = parser.parse_args()
 
+    model_path = Path(args.model_path)
+    if not model_path.is_absolute():
+        model_path = PROJECT_ROOT / model_path
+
+    output_path = Path(args.output)
+    if not output_path.is_absolute():
+        output_path = PROJECT_ROOT / output_path
+
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    model = PPO.load(args.model_path, device=device)
+    model = PPO.load(model_path, device=device)
+    results = evaluate_model(model, args.episodes, args.max_steps)
+    save_evaluation_report(results, model_path, output_path)
+    print(f"Saved evaluation report to: {output_path}")
 
-    rewards = []
-    completions = []
-    statuses = []
-
-    for ep in range(args.episodes):
-        total_reward, steps, info = run_one_episode(model, args.max_steps)
-        rewards.append(total_reward)
-        completions.append(info.get("route_completion", 0.0) * 100)
-
-        if info.get("arrive_dest"):
-            status = "arrive_dest"
-        elif info.get("crash"):
-            status = "crash"
-        elif info.get("out_of_road"):
-            status = "out_of_road"
-        else:
-            status = "unknown"
-        statuses.append(status)
-
-        print(f"Episode {ep + 1}: reward={total_reward:.2f}, completion={completions[-1]:.1f}%, status={status}")
-
-    print()
-    print("=" * 48)
-    print("Evaluation Summary")
-    print("=" * 48)
-    print(f"Mean reward      : {sum(rewards) / len(rewards):.2f}")
-    print(f"Mean completion  : {sum(completions) / len(completions):.1f}%")
-    print(f"Statuses         : {statuses}")
-    print("=" * 48)
 
 if __name__ == "__main__":
     main()

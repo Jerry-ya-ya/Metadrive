@@ -47,7 +47,7 @@ MetaDrive with `MlpPolicy` may still be CPU-heavy because the simulator runs on 
 ## Preview Map
 
 ```bash
-python preview_map.py
+python -m env_check.preview_map
 ```
 
 This saves a top-down map preview to:
@@ -79,20 +79,49 @@ python continue_train.py --timesteps 50000
 ## Evaluate
 
 ```bash
-python evaluate.py --episodes 5
+python -m analyze.model_evaluate --episodes 5 --output outputs/model_evaluation.txt
 ```
+
+The evaluation summary is written to `outputs/model_evaluation.txt`.
 
 ## Record Video
 
 ```bash
-python record_video.py --steps 1000
+python -m record.1st_person --steps 1000 --seed 85
 ```
 
-The output video will be saved to:
+The default video and readable report are saved to:
 
 ```text
-videos/metadrive_driving_video.mp4
+videos/metadrive_driving_1stp_video.mp4
+videos/metadrive_driving_1stp_video.txt
 ```
+
+## Run the Model Test Suite
+
+Use the PowerShell trigger script to run the evaluation first and the
+first-person recording second. Each test remains an independent Python command;
+the trigger stops immediately if either command fails.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\run_model_tests.ps1 -TestName "sc_seed_85" -ModelPath "models\ppo_metadrive.zip" -Episodes 5 -MaxSteps 1000 -RecordSteps 1000 -Seed 85
+```
+
+`-TestName` is required and becomes the result folder name. Each name must be
+new so an earlier test result is not overwritten. The command creates
+`model_backup` automatically when needed and writes:
+
+```text
+model_backup/
+└── sc_seed_85/
+    ├── evaluation.txt
+    ├── recording.txt
+    ├── first_person.mp4
+    └── run_summary.txt
+```
+
+The reports are produced by their corresponding Python scripts, while
+`run_summary.txt` confirms that the complete sequence finished successfully.
 
 ## TensorBoard
 

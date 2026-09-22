@@ -29,3 +29,7 @@
 ## 2026/09/11
 
 - Add seeded SC-curve recording with steering stability diagnostics.
+
+## 2026/09/22
+
+- Add sequential model test automation with file reports and example recordings.

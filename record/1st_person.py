@@ -1,143 +1,224 @@
+import argparse
 import sys
 from pathlib import Path
 
-# Allow both of these invocation styles:
-#   python env_check/preview_map.py
-#   python -m env_check.preview_map
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-# python -m record.1st_person --seed 85
-
-import argparse
-from pathlib import Path
-import numpy as np
-
+import cv2
 import imageio
+import numpy as np
 import torch
 from stable_baselines3 import PPO
 
 from config import MODEL_PATH, VIDEO_DIR
-from env_utils import make_metadrive_env, print_scoreboard
+from env_utils import get_final_status, make_metadrive_env
 
-import cv2
+
+def _describe_observation(obs):
+    if not isinstance(obs, dict):
+        return [f"Observation type  : {type(obs).__name__}"]
+
+    lines = []
+    for key, value in obs.items():
+        lines.append(
+            f"Observation {key:<6}: shape={value.shape}, dtype={value.dtype}"
+        )
+    return lines
+
+
+def _safe_stats(values):
+    values = np.asarray(values, dtype=np.float32)
+    if values.size == 0:
+        return {"mean": 0.0, "std": 0.0, "min": 0.0, "max": 0.0}
+    return {
+        "mean": float(values.mean()),
+        "std": float(values.std()),
+        "min": float(values.min()),
+        "max": float(values.max()),
+    }
+
+
+def record_first_person(
+    model,
+    output_path,
+    report_path,
+    *,
+    model_path,
+    steps=1000,
+    fps=30,
+    screen_size=672,
+    seed=0,
+):
+    if steps < 1:
+        raise ValueError("steps must be at least 1")
+    if fps < 1:
+        raise ValueError("fps must be at least 1")
+    if screen_size < 1:
+        raise ValueError("screen_size must be at least 1")
+
+    output_path = Path(output_path)
+    report_path = Path(report_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    report_path.parent.mkdir(parents=True, exist_ok=True)
+
+    env = make_metadrive_env({
+        "map": "SC",
+        "start_seed": seed,
+        "num_scenarios": 1,
+    })
+
+    try:
+        obs, info = env.reset()
+        observation_lines = _describe_observation(obs)
+        frames = []
+        steering_values = []
+        throttle_values = []
+        total_reward = 0.0
+        completed_steps = 0
+
+        for _ in range(steps):
+            action, _states = model.predict(obs, deterministic=True)
+            steering_values.append(float(action[0]))
+            throttle_values.append(float(action[1]))
+
+            obs, reward, terminated, truncated, info = env.step(action)
+            total_reward += float(reward)
+            completed_steps += 1
+
+            frame = np.transpose(obs["image"], (1, 2, 0))
+            frame = (frame * 255).clip(0, 255).astype("uint8")
+            frame = cv2.resize(
+                frame,
+                (screen_size, screen_size),
+                interpolation=cv2.INTER_NEAREST,
+            )
+            frames.append(frame)
+
+            if terminated or truncated:
+                break
+
+        imageio.mimsave(output_path, frames, fps=fps)
+
+        steering = _safe_stats(steering_values)
+        throttle = _safe_stats(throttle_values)
+        steering_changes = np.diff(steering_values)
+        mean_abs_delta = (
+            float(np.mean(np.abs(steering_changes)))
+            if steering_changes.size
+            else 0.0
+        )
+        max_abs_delta = (
+            float(np.max(np.abs(steering_changes)))
+            if steering_changes.size
+            else 0.0
+        )
+        sign_changes = int(
+            np.sum(
+                np.sign(steering_values[1:])
+                != np.sign(steering_values[:-1])
+            )
+        )
+
+        result = {
+            "status": get_final_status(info),
+            "completion": info.get("route_completion", 0.0) * 100,
+            "reward": total_reward,
+            "steps": completed_steps,
+            "steering": steering,
+            "throttle": throttle,
+            "mean_abs_steering_delta": mean_abs_delta,
+            "max_abs_steering_delta": max_abs_delta,
+            "steering_sign_changes": sign_changes,
+        }
+
+        lines = [
+            "MetaDrive First-Person Recording",
+            "=" * 48,
+            f"Model             : {model_path}",
+            f"Seed              : {seed}",
+            f"Video             : {output_path}",
+            f"Observation space : {env.observation_space}",
+            f"Feature extractor : {model.policy.features_extractor}",
+            *observation_lines,
+            "",
+            "Episode Result",
+            "=" * 48,
+            f"Final status      : {result['status']}",
+            f"Route completion  : {result['completion']:.1f}%",
+            f"Total steps       : {result['steps']}",
+            f"Total reward      : {result['reward']:.2f}",
+            "",
+            "Steering",
+            "=" * 48,
+            f"Mean              : {steering['mean']:.6f}",
+            f"Std               : {steering['std']:.6f}",
+            f"Min               : {steering['min']:.6f}",
+            f"Max               : {steering['max']:.6f}",
+            f"Mean abs delta    : {mean_abs_delta:.6f}",
+            f"Max abs delta     : {max_abs_delta:.6f}",
+            f"Sign changes      : {sign_changes}",
+            "",
+            "Throttle",
+            "=" * 48,
+            f"Mean              : {throttle['mean']:.6f}",
+            f"Std               : {throttle['std']:.6f}",
+            f"Min               : {throttle['min']:.6f}",
+            f"Max               : {throttle['max']:.6f}",
+        ]
+        report_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        return result
+    finally:
+        env.close()
+
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model-path", type=str, default=str(MODEL_PATH))
-    parser.add_argument("--output", type=str, default=str(VIDEO_DIR / "metadrive_driving_1stp_video.mp4"))
-    parser.add_argument("--steps", type=int, default=100000)
+    parser.add_argument(
+        "--output",
+        type=str,
+        default=str(VIDEO_DIR / "metadrive_driving_1stp_video.mp4"),
+    )
+    parser.add_argument("--report-output", type=str)
+    parser.add_argument("--steps", type=int, default=1000)
     parser.add_argument("--fps", type=int, default=30)
-    parser.add_argument("--screen-size", type=int, default=600)
+    parser.add_argument("--screen-size", type=int, default=672)
     parser.add_argument("--seed", type=int, default=0)
-
     args = parser.parse_args()
 
-    VIDEO_DIR.mkdir(exist_ok=True)
-
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    model = PPO.load(args.model_path, device=device)
-
-    env = make_metadrive_env({
-    "map": "SC",
-    "start_seed": args.seed,
-    "num_scenarios": 1,
-    })
-
-    obs, info = env.reset()
-
-    print(env.observation_space)
-    print(type(obs))
-
-    if isinstance(obs, dict):
-        for key, value in obs.items():
-            print(key, value.shape, value.dtype)
-
-    frames = []
-    total_reward = 0.0
-    steps = 0
-
-    print("Recording 1st person driving video...")
-
-    steering_values = []
-    throttle_values = []
-
-    for _ in range(args.steps):
-        action, _states = model.predict(obs, deterministic=True)
-
-        steering = float(action[0])
-        throttle_values.append(float(action[1]))
-        steering_values.append(steering)
-        
-        obs, reward, terminated, truncated, info = env.step(action)
-
-        total_reward += float(reward)
-        steps += 1
-
-        # PPO receives CHW image: (3, 84, 84)
-        frame = obs["image"]
-
-        # Convert back to HWC for video: (84, 84, 3)
-        frame = np.transpose(frame, (1, 2, 0))
-
-        # float32 [0, 1] -> uint8 [0, 255]
-        frame = (frame * 255).clip(0, 255).astype("uint8")
-
-        # Enlarge video
-        frame = cv2.resize(
-            frame,
-            (672, 672),
-            interpolation=cv2.INTER_NEAREST
-        )
-
-        frames.append(frame)
-
-        print("Action:", action)
-        print("Action shape:", action.shape)
-
-        if terminated or truncated:
-            break
-
-    print("\n===== Features Extractor =====")
-    print(model.policy.features_extractor)
-    print(env.observation_space)
-    print(type(model.policy.features_extractor))
-
-    print_scoreboard(total_reward, steps, info)
-
-    print("\n===== Steering =====")
-    print("Mean:", np.mean(steering_values))
-    print("Std:", np.std(steering_values))
-    print("Min:", np.min(steering_values))
-    print("Max:", np.max(steering_values))
-
-    print("\n===== Throttle =====")
-    print("Mean:", np.mean(throttle_values))
-    print("Std:", np.std(throttle_values))
-    print("Min:", np.min(throttle_values))
-    print("Max:", np.max(throttle_values))
-
-    steering_changes = np.diff(steering_values)
-
-    print("\n===== Steering Stability =====")
-    print("Mean abs delta:",
-        np.mean(np.abs(steering_changes)))
-
-    print("Max abs delta:",
-        np.max(np.abs(steering_changes)))
-
-    print("Sign changes:",
-        np.sum(
-            np.sign(steering_values[1:])
-            != np.sign(steering_values[:-1])
-        ))
-
-    env.close()
+    model_path = Path(args.model_path)
+    if not model_path.is_absolute():
+        model_path = PROJECT_ROOT / model_path
 
     output_path = Path(args.output)
-    imageio.mimsave(output_path, frames, fps=args.fps)
-    print(f"Saved video to {output_path}")
+    if not output_path.is_absolute():
+        output_path = PROJECT_ROOT / output_path
+
+    report_path = (
+        Path(args.report_output)
+        if args.report_output
+        else output_path.with_suffix(".txt")
+    )
+    if not report_path.is_absolute():
+        report_path = PROJECT_ROOT / report_path
+
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    model = PPO.load(model_path, device=device)
+    record_first_person(
+        model,
+        output_path,
+        report_path,
+        model_path=model_path,
+        steps=args.steps,
+        fps=args.fps,
+        screen_size=args.screen_size,
+        seed=args.seed,
+    )
+    print(f"Saved first-person video to: {output_path}")
+    print(f"Saved recording report to: {report_path}")
+
 
 if __name__ == "__main__":
     main()
