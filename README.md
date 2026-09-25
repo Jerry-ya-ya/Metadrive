@@ -67,8 +67,27 @@ python train.py --timesteps 10000
 More serious training:
 
 ```bash
-python train.py --timesteps 50000
+python train.py --timesteps 50000 --test-name sc_50k --record-seed 85
 ```
+
+After saving the trained model, `train.py` automatically starts
+`run_model_tests.ps1`. It evaluates the saved model and records one complete
+first-person test run under `model_backup/<test-name>/`. If `--test-name` is
+omitted, a timestamped name such as `training_20260925_153000` is generated.
+
+Post-training options include:
+
+```text
+--test-episodes 5
+--test-max-steps 1000
+--record-steps 1000
+--record-seed 0
+--record-fps 30
+--record-screen-size 672
+```
+
+Use `--skip-post-test` only when training should save the model without running
+the evaluation and recording sequence.
 
 ## Continue Training
 
