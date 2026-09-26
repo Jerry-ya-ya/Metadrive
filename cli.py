@@ -1,9 +1,11 @@
 import argparse
 import ast
 import shlex
+import shutil
 import subprocess
 import sys
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 
 
@@ -33,6 +35,17 @@ class Tool:
     path: Path
     description: str
     arguments: tuple[ToolArgument, ...]
+
+
+@dataclass(frozen=True)
+class PostTestConfig:
+    test_name: str
+    episodes: int
+    max_steps: int
+    record_steps: int
+    seed: int
+    fps: int
+    screen_size: int
 
 
 def _literal_value(node):
@@ -211,9 +224,9 @@ def display_command(command):
     return subprocess.list2cmdline([str(part) for part in command])
 
 
-def execute(command):
+def execute(command, *, confirm=True):
     print(f"\nCommand:\n{display_command(command)}")
-    if not prompt_yes_no("Run this command?", default=True):
+    if confirm and not prompt_yes_no("Run this command?", default=True):
         print("Cancelled.")
         return False
     try:
@@ -226,7 +239,8 @@ def execute(command):
 
 def choose_model():
     candidates = []
-    for folder in (PROJECT_ROOT / "models", PROJECT_ROOT / "checkpoints"):
+    for folder_name in ("models", "checkpoints", "models_backup", "model_backup"):
+        folder = PROJECT_ROOT / folder_name
         if folder.is_dir():
             candidates.extend(folder.rglob("*.zip"))
     candidates = sorted(set(candidates), key=lambda path: path.stat().st_mtime, reverse=True)
@@ -241,13 +255,76 @@ def choose_model():
     return str(candidates[index].relative_to(PROJECT_ROOT))
 
 
+def saved_model_path(path_value):
+    path = Path(path_value)
+    return str(path if path.suffix.lower() == ".zip" else Path(f"{path}.zip"))
+
+
+def prompt_post_test_config():
+    if not prompt_yes_no("Run model evaluation and recording after training?", default=True):
+        return None
+
+    test_name = prompt_text("Post-training test name (blank = timestamp)")
+    if not test_name:
+        test_name = datetime.now().strftime("training_%Y%m%d_%H%M%S")
+
+    return PostTestConfig(
+        test_name=test_name,
+        episodes=prompt_int("Evaluation episodes", 5),
+        max_steps=prompt_int("Maximum evaluation steps", 1000),
+        record_steps=prompt_int("Maximum recording steps", 1000),
+        seed=prompt_int("Recording seed", 0, minimum=0),
+        fps=prompt_int("Recording FPS", 30),
+        screen_size=prompt_int("Recording screen size", 672),
+    )
+
+
+def run_post_training_tests(model_path, config):
+    powershell = shutil.which("pwsh") or shutil.which("powershell")
+    test_runner = PROJECT_ROOT / "run_model_tests.ps1"
+    if powershell is None:
+        print("Post-training tests failed: PowerShell was not found.", file=sys.stderr)
+        return False
+    if not test_runner.is_file():
+        print(f"Post-training tests failed: missing {test_runner}.", file=sys.stderr)
+        return False
+
+    command = [
+        powershell,
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        str(test_runner),
+        "-TestName",
+        config.test_name,
+        "-ModelPath",
+        saved_model_path(model_path),
+        "-Episodes",
+        str(config.episodes),
+        "-MaxSteps",
+        str(config.max_steps),
+        "-RecordSteps",
+        str(config.record_steps),
+        "-Seed",
+        str(config.seed),
+        "-Fps",
+        str(config.fps),
+        "-ScreenSize",
+        str(config.screen_size),
+        "-PythonExecutable",
+        sys.executable,
+    ]
+    print(f"\nTraining completed. Starting model tests: {config.test_name}")
+    return execute(command, confirm=False)
+
+
 def run_new_training():
     print("\nNew training")
     timesteps = prompt_int("Training timesteps", 50_000)
     learning_rate = prompt_float("Learning rate", "3e-4")
     model_path = prompt_text("Output model path", DEFAULT_MODEL_PATH)
-    test_name = prompt_text("Post-training test name (blank = timestamp)")
-    record_seed = prompt_int("Recording seed", 0, minimum=0)
+    post_test = prompt_post_test_config()
 
     command = [
         sys.executable,
@@ -258,14 +335,10 @@ def run_new_training():
         str(learning_rate),
         "--model-path",
         model_path,
-        "--record-seed",
-        str(record_seed),
+        "--skip-post-test",
     ]
-    if test_name:
-        command.extend(["--test-name", test_name])
-    if not prompt_yes_no("Run evaluation and recording after training?", default=True):
-        command.append("--skip-post-test")
-    execute(command)
+    if execute(command) and post_test is not None:
+        run_post_training_tests(model_path, post_test)
 
 
 def run_continued_training():
@@ -275,6 +348,7 @@ def run_continued_training():
         return
     timesteps = prompt_int("Additional timesteps", 25_000)
     learning_rate = prompt_float("Learning rate", "1e-4")
+    post_test = prompt_post_test_config()
     command = [
         sys.executable,
         str(PROJECT_ROOT / "continue_train.py"),
@@ -285,7 +359,8 @@ def run_continued_training():
         "--learning-rate",
         str(learning_rate),
     ]
-    execute(command)
+    if execute(command) and post_test is not None:
+        run_post_training_tests(model_path, post_test)
 
 
 def build_tool_command(tool):

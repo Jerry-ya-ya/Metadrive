@@ -37,3 +37,5 @@
 ## 2026/09/26
 
 - Add an interactive CLI for configurable training and auto-discovered project tools.
+
+- Trigger model evaluation and recording after CLI training runs.

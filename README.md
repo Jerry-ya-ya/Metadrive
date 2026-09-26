@@ -55,9 +55,15 @@ python cli.py
 The CLI can:
 
 - start a new training run with a selected learning rate;
-- discover existing model and checkpoint ZIP files, then continue training one;
+- discover model ZIP files under `models`, `checkpoints`, `models_backup`, and
+  `model_backup`, then continue training one;
 - browse tools grouped under `analyze`, `env_check`, `record`, and `statistic`;
 - inspect each tool's `argparse` options and prompt for them automatically.
+
+After either a new training run or a continued training run finishes
+successfully, the CLI directly starts `run_model_tests.ps1` with the saved model.
+The PowerShell trigger then runs model evaluation followed by first-person
+recording. Selecting no at the post-training prompt skips this sequence.
 
 Python tools are scanned recursively from those four package folders whenever
 the CLI starts, so newly added scripts appear without editing `cli.py`. Files
