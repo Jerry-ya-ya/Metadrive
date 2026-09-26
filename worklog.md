@@ -33,3 +33,7 @@
 ## 2026/09/22
 
 - Add sequential model test automation with file reports and example recordings.
+
+## 2026/09/26
+
+- Add an interactive CLI for configurable training and auto-discovered project tools.

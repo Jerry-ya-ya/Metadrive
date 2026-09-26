@@ -44,6 +44,32 @@ python check_cuda.py
 
 MetaDrive with `MlpPolicy` may still be CPU-heavy because the simulator runs on CPU. GPU helps the neural network part, but the environment simulation may remain the bottleneck.
 
+## Interactive CLI
+
+Start the project menu with:
+
+```bash
+python cli.py
+```
+
+The CLI can:
+
+- start a new training run with a selected learning rate;
+- discover existing model and checkpoint ZIP files, then continue training one;
+- browse tools grouped under `analyze`, `env_check`, `record`, and `statistic`;
+- inspect each tool's `argparse` options and prompt for them automatically.
+
+Python tools are scanned recursively from those four package folders whenever
+the CLI starts, so newly added scripts appear without editing `cli.py`. Files
+named `__init__.py` and cache folders are skipped.
+
+To inspect or launch the discovered tools without the interactive menu:
+
+```bash
+python cli.py --list-tools
+python cli.py --run-tool analyze.model_evaluate -- --episodes 5
+```
+
 ## Preview Map
 
 ```bash
