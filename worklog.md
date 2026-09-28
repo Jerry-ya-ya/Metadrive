@@ -39,3 +39,7 @@
 - Add an interactive CLI for configurable training and auto-discovered project tools.
 
 - Trigger model evaluation and recording after CLI training runs.
+
+## 2026/09/28
+
+- Add a containerized web control center for training, model evaluation, recording, and auto-discovered CLI tools on port 4000.

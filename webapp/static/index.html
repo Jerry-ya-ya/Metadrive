@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MetaDrive PPO Control Center</title>
+  <link rel="stylesheet" href="/assets/styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">MD</div>
+        <div><strong>MetaDrive</strong><span>PPO Control Center</span></div>
+      </div>
+      <nav>
+        <button class="nav-item active" data-view="training"><span>01</span>訓練</button>
+        <button class="nav-item" data-view="tools"><span>02</span>工具包</button>
+        <button class="nav-item" data-view="jobs"><span>03</span>工作紀錄</button>
+      </nav>
+      <div class="system-card">
+        <div class="status-row"><i id="health-dot"></i><span id="health-text">連線中</span></div>
+        <small>API · Port 4000</small>
+      </div>
+    </aside>
+
+    <main>
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">RL WORKSPACE</p>
+          <h1 id="page-title">模型訓練</h1>
+        </div>
+        <button class="ghost" id="refresh-button">重新整理</button>
+      </header>
+
+      <section class="view active" id="view-training">
+        <div class="hero-card">
+          <div>
+            <span class="pill">TRAINING PIPELINE</span>
+            <h2>建立一次可追蹤的訓練流程</h2>
+            <p>選擇全新模型或既有 checkpoint，完成後自動接續評分與第一人稱錄影。</p>
+          </div>
+          <div class="hero-metric"><strong id="model-count">0</strong><span>可用模型</span></div>
+        </div>
+
+        <form id="training-form" class="panel form-panel">
+          <div class="section-heading">
+            <div><span class="step">STEP 1</span><h3>訓練來源</h3></div>
+            <div class="segmented">
+              <button type="button" class="active" data-mode="new">新訓練</button>
+              <button type="button" data-mode="continue">繼續訓練</button>
+            </div>
+          </div>
+
+          <div class="form-grid">
+            <label class="field new-only"><span>輸出模型路徑</span><input id="new-model-path" value="models/ppo_metadrive" required></label>
+            <label class="field continue-only hidden"><span>既有模型</span><select id="existing-model"></select></label>
+            <label class="field"><span>訓練步數</span><input id="timesteps" type="number" min="1" value="50000" required></label>
+            <label class="field"><span>Learning rate</span><input id="learning-rate" type="number" min="0" step="any" value="0.0003" required></label>
+          </div>
+
+          <div class="divider"></div>
+          <div class="section-heading">
+            <div><span class="step">STEP 2</span><h3>訓練後測試</h3></div>
+            <label class="switch"><input id="post-enabled" type="checkbox" checked><span></span>啟用</label>
+          </div>
+
+          <div id="post-fields" class="form-grid compact">
+            <label class="field wide"><span>測試名稱</span><input id="test-name" placeholder="留空自動使用時間戳"></label>
+            <label class="field"><span>評分回合</span><input id="episodes" type="number" min="1" value="5"></label>
+            <label class="field"><span>每回合上限</span><input id="max-steps" type="number" min="1" value="1000"></label>
+            <label class="field"><span>錄影步數</span><input id="record-steps" type="number" min="1" value="1000"></label>
+            <label class="field"><span>錄影 Seed</span><input id="record-seed" type="number" min="0" value="0"></label>
+            <label class="field"><span>FPS</span><input id="fps" type="number" min="1" value="30"></label>
+            <label class="field"><span>畫面尺寸</span><input id="screen-size" type="number" min="1" value="672"></label>
+          </div>
+
+          <div class="form-actions">
+            <p>同一時間只會執行一項工作，避免 GPU 與模擬器互相競爭。</p>
+            <button class="primary" type="submit">開始訓練 <span>→</span></button>
+          </div>
+        </form>
+      </section>
+
+      <section class="view" id="view-tools">
+        <div class="tool-layout">
+          <div class="panel package-panel">
+            <div class="section-heading"><div><span class="step">AUTO DISCOVERY</span><h3>能力集合</h3></div></div>
+            <div id="package-list" class="package-list"></div>
+          </div>
+          <div class="panel tool-panel">
+            <div id="tool-empty" class="empty-state"><div>⌘</div><h3>選擇一個工具</h3><p>工具與參數會從 Python 原始碼自動掃描。</p></div>
+            <form id="tool-form" class="hidden">
+              <span class="pill" id="tool-package"></span>
+              <h2 id="tool-name"></h2>
+              <p id="tool-description"></p>
+              <div id="tool-arguments" class="form-grid tool-arguments"></div>
+              <div class="form-actions"><p id="tool-module"></p><button class="primary" type="submit">執行工具 <span>→</span></button></div>
+            </form>
+          </div>
+        </div>
+      </section>
+
+      <section class="view" id="view-jobs">
+        <div class="jobs-layout">
+          <div class="panel job-list-panel">
+            <div class="section-heading"><div><span class="step">QUEUE</span><h3>工作紀錄</h3></div></div>
+            <div id="job-list" class="job-list"></div>
+          </div>
+          <div class="panel terminal-panel">
+            <div class="terminal-head">
+              <div><span id="job-status" class="status-badge idle">IDLE</span><strong id="job-title">尚未選擇工作</strong></div>
+              <button id="cancel-job" class="danger hidden">停止工作</button>
+            </div>
+            <pre id="job-logs">等待工作輸出…</pre>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+  <div id="toast" class="toast"></div>
+  <script src="/assets/app.js" defer></script>
+</body>
+</html>

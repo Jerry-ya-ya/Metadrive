@@ -1,0 +1,20 @@
+services:
+  metadrive-web:
+    build:
+      context: .
+      args:
+        TORCH_INDEX_URL: ${TORCH_INDEX_URL:-https://download.pytorch.org/whl/cpu}
+    ports:
+      - "127.0.0.1:4202:4000"
+    volumes:
+      - ./models:/app/models
+      - ./checkpoints:/app/checkpoints
+      - ./models_backup:/app/models_backup
+      - ./model_backup:/app/model_backup
+      - ./logs:/app/logs
+      - ./outputs:/app/outputs
+      - ./videos:/app/videos
+    environment:
+      PYTHONUNBUFFERED: "1"
+    shm_size: "2gb"
+    restart: unless-stopped

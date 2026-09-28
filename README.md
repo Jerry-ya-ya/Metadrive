@@ -76,6 +76,52 @@ python cli.py --list-tools
 python cli.py --run-tool analyze.model_evaluate -- --episodes 5
 ```
 
+## Web Control Center (Docker)
+
+The browser interface mirrors the CLI's main capabilities: it can start new
+training, continue from a discovered model, choose the learning rate, run the
+post-training evaluation and first-person recording sequence, and launch tools
+auto-discovered from `analyze`, `env_check`, `record`, and `statistic`.
+
+Build and start the container with:
+
+```bash
+docker compose up --build
+```
+
+The default image installs the CPU PyTorch wheel to keep the image portable and
+avoid bundling several gigabytes of CUDA libraries. To use a compatible custom
+PyTorch wheel index, set `TORCH_INDEX_URL` before building the image.
+
+Then open:
+
+```text
+http://localhost:4000
+```
+
+The FastAPI backend and frontend are served together on port `4000`. Compose
+binds the port to `127.0.0.1`, so the control center is only reachable from the
+same computer. Only one training or tool job runs at a time; its current stage
+and combined terminal output are available in the Jobs page. A running job can
+also be cancelled there.
+
+Project result folders are mounted into the container, so models, checkpoints,
+logs, reports, and videos remain on the host after the container stops. Stop it
+with:
+
+```bash
+docker compose down
+```
+
+For local development without Docker, install the requirements and run:
+
+```bash
+uvicorn webapp.backend:app --host 0.0.0.0 --port 4000
+```
+
+This control center starts local Python processes and is intended for a trusted
+machine or private network; it does not provide user authentication.
+
 ## Preview Map
 
 ```bash
