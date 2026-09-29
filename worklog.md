@@ -47,3 +47,5 @@
 ## 2026/09/29
 
 - Add persistent MetaDrive map settings to training and evaluation with a responsive, collapsible web interface.
+
+- Reduce MetaDrive training memory use and add persistent retries for failed jobs.

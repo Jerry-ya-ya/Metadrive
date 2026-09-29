@@ -98,12 +98,23 @@ def cancel_job(job_id: str):
     return result
 
 
+@app.post("/api/jobs/{job_id}/retry", status_code=202)
+def retry_job(job_id: str):
+    try:
+        result = job_manager.retry(job_id)
+        if result is None:
+            raise HTTPException(status_code=404, detail="Job not found.")
+        return result
+    except (ValueError, RuntimeError, OSError) as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+
+
 @app.post("/api/training", status_code=202)
 def start_training(request: TrainingRequest):
     payload = model_data(request)
     try:
         steps, summary = training_steps(payload)
-        return job_manager.start(f"training:{request.mode}", steps, summary)
+        return job_manager.start(f"training:{request.mode}", steps, summary, kind="training")
     except (ValueError, RuntimeError, OSError) as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
 

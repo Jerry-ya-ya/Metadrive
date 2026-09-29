@@ -112,6 +112,7 @@ input:disabled { opacity: .45; }
 .terminal-panel { min-width: 0; display: grid; grid-template-rows: auto 1fr; }
 .terminal-head { height: 62px; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; border-bottom: 1px solid var(--line); }
 .terminal-head strong { margin-left: 10px; }
+.job-actions { display: flex; align-items: center; gap: 8px; }
 .status-badge { padding: 4px 7px; border-radius: 3px; font-size: 9px; letter-spacing: .1em; background: #28313d; color: #c0cad5; }
 .status-badge.running { color: var(--blue); background: #172c43; }
 .status-badge.succeeded { color: var(--accent); background: var(--accent-dark); }

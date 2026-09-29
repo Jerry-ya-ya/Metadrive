@@ -4,7 +4,11 @@ ARG TORCH_INDEX_URL=https://download.pytorch.org/whl/cpu
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1
+    PIP_NO_CACHE_DIR=1 \
+    OMP_NUM_THREADS=2 \
+    MKL_NUM_THREADS=2 \
+    OPENBLAS_NUM_THREADS=2 \
+    NUMEXPR_NUM_THREADS=2
 
 WORKDIR /app
 
@@ -22,6 +26,8 @@ COPY requirements.txt ./
 RUN python -m pip install --upgrade pip \
     && python -m pip install --index-url "${TORCH_INDEX_URL}" torch \
     && python -m pip install -r requirements.txt
+
+RUN python -c "from metadrive.pull_asset import pull_asset; pull_asset(update=False)"
 
 COPY . .
 

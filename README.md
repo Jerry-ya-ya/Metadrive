@@ -105,14 +105,27 @@ PyTorch wheel index, set `TORCH_INDEX_URL` before building the image.
 Then open:
 
 ```text
-http://localhost:4000
+http://localhost:4202
 ```
 
-The FastAPI backend and frontend are served together on port `4000`. Compose
-binds the port to `127.0.0.1`, so the control center is only reachable from the
-same computer. Only one training or tool job runs at a time; its current stage
-and combined terminal output are available in the Jobs page. A running job can
-also be cancelled there.
+The FastAPI backend and frontend use port `4000` inside the container; Compose
+publishes them on `127.0.0.1:4202` on the host. Only one training or tool job
+runs at a time. The Jobs page shows its current stage and combined output. A
+running job can be cancelled; failed training can be retried from the first
+unfinished stage, using the saved commands. Job records survive container
+restarts in `logs/web_jobs`.
+
+The image downloads MetaDrive assets during the build, before training starts,
+limits CPU library threads, and avoids keeping all 50 generated maps in memory.
+If a training job still
+ends with `SIGKILL (9)` and Docker reports an OOM kill, increase the memory
+available to Docker Desktop (8 GiB is a practical starting point for this
+image) or free memory by stopping other containers before retrying. On Windows
+with the WSL backend, check `%USERPROFILE%\.wslconfig`: a line such as
+`memory=4GB` limits the entire WSL VM even when the computer has more RAM.
+Change it to `memory=8GB`, run `wsl --shutdown`, then start Docker Desktop and
+this Compose project again. `wsl --shutdown` temporarily stops every WSL
+distribution and Docker container, so schedule that restart accordingly.
 
 Project result folders are mounted into the container, so models, checkpoints,
 logs, reports, and videos remain on the host after the container stops. Stop it

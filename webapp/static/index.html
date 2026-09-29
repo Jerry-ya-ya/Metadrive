@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>MetaDrive PPO Control Center</title>
-  <link rel="stylesheet" href="/assets/styles.css?v=responsive-nav-1">
+  <link rel="stylesheet" href="/assets/styles.css?v=training-retry-1">
 </head>
 <body>
   <div class="app-shell">
@@ -114,7 +114,10 @@
           <div class="panel terminal-panel">
             <div class="terminal-head">
               <div><span id="job-status" class="status-badge idle">IDLE</span><strong id="job-title">尚未選擇工作</strong></div>
-              <button id="cancel-job" class="danger hidden">停止工作</button>
+              <div class="job-actions">
+                <button type="button" id="retry-job" class="ghost hidden">重試工作</button>
+                <button type="button" id="cancel-job" class="danger hidden">停止工作</button>
+              </div>
             </div>
             <pre id="job-logs">等待工作輸出…</pre>
           </div>
@@ -123,6 +126,6 @@
     </main>
   </div>
   <div id="toast" class="toast"></div>
-  <script src="/assets/app.js?v=responsive-nav-1" defer></script>
+  <script src="/assets/app.js?v=training-retry-1" defer></script>
 </body>
 </html>

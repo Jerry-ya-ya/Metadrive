@@ -197,6 +197,20 @@ function renderSelectedJob() {
   $("#job-logs").textContent = job.logs.length ? job.logs.join("\n") : "工作已排入佇列…";
   $("#job-logs").scrollTop = $("#job-logs").scrollHeight;
   $("#cancel-job").classList.toggle("hidden", !["queued", "running"].includes(job.status));
+  const retryButton = $("#retry-job");
+  retryButton.classList.toggle("hidden", !job.can_retry);
+  const retryStage = { training: "訓練", evaluation: "評分", recording: "錄影", summary: "報告" }[job.retry_stage] || "工作";
+  retryButton.textContent = `從${retryStage}重試`;
+}
+
+async function retrySelectedJob() {
+  if (!state.selectedJob) return;
+  try {
+    const job = await api(`/api/jobs/${state.selectedJob}/retry`, { method: "POST" });
+    state.selectedJob = job.id;
+    toast("重試工作已建立。");
+    await loadJobs();
+  } catch (error) { toast(error.message, true); }
 }
 
 async function cancelSelectedJob() {
@@ -227,6 +241,7 @@ document.addEventListener("DOMContentLoaded", () => {
   $("#training-form").addEventListener("submit", submitTraining);
   $("#tool-form").addEventListener("submit", submitTool);
   $("#cancel-job").addEventListener("click", cancelSelectedJob);
+  $("#retry-job").addEventListener("click", retrySelectedJob);
   $("#refresh-button").addEventListener("click", refreshAll);
   refreshAll();
   setInterval(() => { loadJobs().catch(() => {}); loadHealth().catch(() => {}); }, 1500);

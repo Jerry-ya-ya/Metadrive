@@ -1,5 +1,7 @@
+import json
 import os
 import re
+import signal
 import subprocess
 import sys
 import threading
@@ -16,6 +18,18 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 MODEL_FOLDERS = ("models", "checkpoints", "models_backup", "model_backup")
 INVALID_TEST_NAME = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
 ACTIVE_STATUSES = {"queued", "running"}
+JOB_STORE = PROJECT_ROOT / "logs" / "web_jobs"
+
+
+def oom_kill_count():
+    try:
+        for line in Path("/sys/fs/cgroup/memory.events").read_text().splitlines():
+            name, value = line.split()
+            if name == "oom_kill":
+                return int(value)
+    except (OSError, ValueError):
+        pass
+    return None
 
 
 def project_path(value, *, add_zip=False):
@@ -259,6 +273,7 @@ def training_steps(payload):
 class Job:
     id: str
     name: str
+    kind: str = "tool"
     status: str = "queued"
     stage: str = "queued"
     created_at: str = field(default_factory=lambda: datetime.now().isoformat(timespec="seconds"))
@@ -266,6 +281,10 @@ class Job:
     finished_at: str | None = None
     return_code: int | None = None
     logs: list[str] = field(default_factory=list)
+    steps: list[tuple[str, list[str]]] = field(default_factory=list, repr=False)
+    summary: dict | None = field(default=None, repr=False)
+    completed_steps: int = 0
+    retry_of: str | None = None
     process: subprocess.Popen | None = field(default=None, repr=False)
     cancel_requested: bool = False
 
@@ -273,6 +292,7 @@ class Job:
         return {
             "id": self.id,
             "name": self.name,
+            "kind": self.kind,
             "status": self.status,
             "stage": self.stage,
             "created_at": self.created_at,
@@ -281,13 +301,60 @@ class Job:
             "return_code": self.return_code,
             "logs": list(self.logs),
             "cancel_requested": self.cancel_requested,
+            "retry_of": self.retry_of,
+            "can_retry": self.kind == "training" and self.status == "failed" and bool(self.steps or self.summary),
+            "retry_stage": self.steps[self.completed_steps][0] if self.completed_steps < len(self.steps) else "summary",
         }
 
 
 class JobManager:
-    def __init__(self):
+    def __init__(self, store_dir=JOB_STORE):
         self.jobs = {}
         self.lock = threading.RLock()
+        self.store_dir = Path(store_dir)
+        self.store_dir.mkdir(parents=True, exist_ok=True)
+        self._load()
+
+    def _persist(self, job):
+        data = job.public()
+        data.update(
+            steps=job.steps,
+            summary={"path": str(job.summary["path"]), "lines": job.summary["lines"]} if job.summary else None,
+            completed_steps=job.completed_steps,
+        )
+        path = self.store_dir / f"{job.id}.json"
+        temp_path = self.store_dir / f"{job.id}.json.tmp"
+        temp_path.write_text(json.dumps(data, ensure_ascii=False) + "\n", encoding="utf-8")
+        os.replace(temp_path, path)
+
+    def _load(self):
+        for path in sorted(self.store_dir.glob("*.json")):
+            try:
+                data = json.loads(path.read_text(encoding="utf-8"))
+                if data["id"] != path.stem:
+                    continue
+                summary = data.get("summary")
+                if summary:
+                    summary = {"path": project_path(summary["path"]), "lines": summary["lines"]}
+                job = Job(
+                    id=data["id"], name=data["name"], kind=data.get("kind", "tool"),
+                    status=data["status"], stage=data["stage"], created_at=data["created_at"],
+                    started_at=data.get("started_at"), finished_at=data.get("finished_at"),
+                    return_code=data.get("return_code"), logs=data.get("logs", []),
+                    steps=[(stage, command) for stage, command in data.get("steps", [])],
+                    summary=summary, completed_steps=data.get("completed_steps", 0),
+                    retry_of=data.get("retry_of"), cancel_requested=data.get("cancel_requested", False),
+                )
+                if job.status in ACTIVE_STATUSES:
+                    job.status = "failed"
+                    job.stage = "interrupted"
+                    job.finished_at = datetime.now().isoformat(timespec="seconds")
+                    job.logs.append("Service restarted before this job completed.")
+                    self._persist(job)
+                self.jobs[job.id] = job
+            except (KeyError, OSError, ValueError, TypeError):
+                continue
+        self.jobs = dict(sorted(self.jobs.items(), key=lambda item: item[1].created_at))
 
     def list(self):
         with self.lock:
@@ -298,21 +365,34 @@ class JobManager:
             job = self.jobs.get(job_id)
             return job.public() if job else None
 
-    def start(self, name, steps, summary=None):
+    def start(self, name, steps, summary=None, *, kind="tool", retry_of=None):
         with self.lock:
             if any(job.status in ACTIVE_STATUSES for job in self.jobs.values()):
                 raise RuntimeError("Another job is already running.")
-            job = Job(id=uuid.uuid4().hex[:12], name=name)
+            job = Job(id=uuid.uuid4().hex[:12], name=name, kind=kind, steps=list(steps), summary=summary, retry_of=retry_of)
             self.jobs[job.id] = job
+            self._persist(job)
 
         thread = threading.Thread(
             target=self._run,
-            args=(job, steps, summary),
+            args=(job,),
             daemon=True,
             name=f"job-{job.id}",
         )
         thread.start()
         return job.public()
+
+    def retry(self, job_id):
+        with self.lock:
+            original = self.jobs.get(job_id)
+            if original is None:
+                return None
+            if original.kind != "training" or original.status != "failed":
+                raise ValueError("Only failed training jobs can be retried.")
+            if not original.steps and not original.summary:
+                raise ValueError("This job has no saved training command to retry.")
+            remaining_steps = original.steps[original.completed_steps:]
+            return self.start(original.name, remaining_steps, original.summary, kind="training", retry_of=original.id)
 
     def cancel(self, job_id):
         with self.lock:
@@ -323,6 +403,7 @@ class JobManager:
                 return job.public()
             job.cancel_requested = True
             process = job.process
+            self._persist(job)
         if process and process.poll() is None:
             process.terminate()
         return job.public()
@@ -333,20 +414,23 @@ class JobManager:
             if len(job.logs) > 5000:
                 del job.logs[:1000]
 
-    def _run(self, job, steps, summary):
+    def _run(self, job):
         with self.lock:
             job.status = "running"
             job.started_at = datetime.now().isoformat(timespec="seconds")
+            self._persist(job)
 
         try:
-            for stage, command in steps:
+            for stage, command in job.steps:
                 with self.lock:
                     if job.cancel_requested:
                         raise InterruptedError
                     job.stage = stage
+                    self._persist(job)
                 self._append(job, f"$ {subprocess.list2cmdline(command)}")
                 environment = os.environ.copy()
                 environment["PYTHONUNBUFFERED"] = "1"
+                oom_before = oom_kill_count()
                 process = subprocess.Popen(
                     command,
                     cwd=PROJECT_ROOT,
@@ -363,6 +447,7 @@ class JobManager:
                 if process.stdout:
                     for line in process.stdout:
                         self._append(job, line)
+                    process.stdout.close()
                 return_code = process.wait()
                 with self.lock:
                     job.process = None
@@ -371,10 +456,19 @@ class JobManager:
                 if cancelled:
                     raise InterruptedError
                 if return_code != 0:
+                    if return_code == -signal.SIGKILL:
+                        oom_after = oom_kill_count()
+                        if oom_before is not None and oom_after is not None and oom_after > oom_before:
+                            self._append(job, "SIGKILL (9): Docker ran out of memory. Increase Docker memory or free memory used by other containers before retrying.")
+                        else:
+                            self._append(job, "SIGKILL (9): process was killed; check Docker memory usage before retrying.")
                     raise subprocess.CalledProcessError(return_code, command)
+                with self.lock:
+                    job.completed_steps += 1
+                    self._persist(job)
 
-            if summary:
-                summary["path"].write_text("\n".join(summary["lines"]) + "\n", encoding="utf-8")
+            if job.summary:
+                job.summary["path"].write_text("\n".join(job.summary["lines"]) + "\n", encoding="utf-8")
             with self.lock:
                 job.status = "succeeded"
                 job.stage = "completed"
@@ -392,6 +486,7 @@ class JobManager:
             with self.lock:
                 job.process = None
                 job.finished_at = datetime.now().isoformat(timespec="seconds")
+                self._persist(job)
 
 
 job_manager = JobManager()

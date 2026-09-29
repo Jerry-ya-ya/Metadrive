@@ -13,6 +13,8 @@ MODEL_PATH = MODEL_DIR / "ppo_metadrive"
 # Teacher-style default MetaDrive config
 METADRIVE_CONFIG = dict(
     use_render=False,
+    # Skip eager model warmup; training has no NPC traffic.
+    preload_models=False,
 
     # Teacher demo used:
     # map="S" for simple environment test
@@ -32,6 +34,9 @@ METADRIVE_CONFIG = dict(
     # Number of random scenarios available from start_seed.
     # This must be at least 1; zero makes every scenario seed invalid.
     num_scenarios=50,
+
+    # Rebuild maps when seeds change instead of retaining up to 50 maps in RAM.
+    store_map=False,
 
     start_seed=1,
 
