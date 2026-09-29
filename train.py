@@ -9,8 +9,9 @@ import torch
 from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import CheckpointCallback
 
-from config import MODEL_DIR, CHECKPOINT_DIR, LOG_DIR, MODEL_PATH
+from config import MODEL_DIR, CHECKPOINT_DIR, LOG_DIR, MODEL_PATH, METADRIVE_CONFIG
 from env_utils import build_vec_env
+from model_metadata import save_model_metadata, saved_model_path
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent
@@ -22,10 +23,6 @@ def resolve_model_path(path_value):
     if not model_path.is_absolute():
         model_path = PROJECT_ROOT / model_path
     return model_path
-
-
-def saved_model_path(model_path):
-    return model_path if model_path.suffix == ".zip" else Path(f"{model_path}.zip")
 
 
 def run_post_training_tests(args, model_path):
@@ -74,6 +71,12 @@ def main():
     parser.add_argument("--checkpoint-freq", type=int, default=5_000)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--learning-rate", type=float, default=None)
+    parser.add_argument(
+        "--map",
+        dest="map_name",
+        default=str(METADRIVE_CONFIG["map"]),
+        help="MetaDrive map sequence, for example SC or XSSORC.",
+    )
     parser.add_argument("--test-name", type=str)
     parser.add_argument("--test-episodes", type=int, default=5)
     parser.add_argument("--test-max-steps", type=int, default=1000)
@@ -84,6 +87,10 @@ def main():
     parser.add_argument("--skip-post-test", action="store_true")
 
     args = parser.parse_args()
+
+    args.map_name = args.map_name.strip()
+    if not args.map_name:
+        parser.error("--map cannot be empty.")
 
     positive_values = {
         "timesteps": args.timesteps,
@@ -108,7 +115,7 @@ def main():
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Using device: {device}")
 
-    env = build_vec_env()
+    env = build_vec_env({"map": args.map_name})
 
     print("\n===== Observation Space =====")
     print(env.observation_space)
@@ -129,6 +136,7 @@ def main():
             normalize_images=False
         ),
     )
+    model.metadrive_map = args.map_name
 
     print("\n===== Observation Features =====")
     print(model.policy.features_extractor)
@@ -151,7 +159,9 @@ def main():
         env.close()
 
     model_path = saved_model_path(model_path)
+    metadata_path = save_model_metadata(model_path, map=args.map_name)
     print(f"Saved model to {model_path}")
+    print(f"Saved model metadata to {metadata_path}")
 
     if args.skip_post_test:
         print("Skipped post-training tests.")

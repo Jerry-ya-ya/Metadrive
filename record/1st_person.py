@@ -12,8 +12,9 @@ import numpy as np
 import torch
 from stable_baselines3 import PPO
 
-from config import MODEL_PATH, VIDEO_DIR
+from config import METADRIVE_CONFIG, MODEL_PATH, VIDEO_DIR
 from env_utils import get_final_status, make_metadrive_env
+from model_metadata import resolve_model_map
 
 
 def _describe_observation(obs):
@@ -46,6 +47,7 @@ def record_first_person(
     report_path,
     *,
     model_path,
+    map_name=None,
     steps=1000,
     fps=30,
     screen_size=672,
@@ -64,7 +66,7 @@ def record_first_person(
     report_path.parent.mkdir(parents=True, exist_ok=True)
 
     env = make_metadrive_env({
-        "map": "SC",
+        "map": map_name or METADRIVE_CONFIG["map"],
         "start_seed": seed,
         "num_scenarios": 1,
     })
@@ -137,6 +139,7 @@ def record_first_person(
             "MetaDrive First-Person Recording",
             "=" * 48,
             f"Model             : {model_path}",
+            f"Map               : {map_name or METADRIVE_CONFIG['map']}",
             f"Seed              : {seed}",
             f"Video             : {output_path}",
             f"Observation space : {env.observation_space}",
@@ -186,6 +189,11 @@ def main():
     parser.add_argument("--fps", type=int, default=30)
     parser.add_argument("--screen-size", type=int, default=672)
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument(
+        "--map",
+        dest="map_name",
+        help="Override the model's stored MetaDrive map.",
+    )
     args = parser.parse_args()
 
     model_path = Path(args.model_path)
@@ -206,11 +214,18 @@ def main():
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     model = PPO.load(model_path, device=device)
+    map_name = resolve_model_map(
+        model_path,
+        args.map_name,
+        model=model,
+        default_map=METADRIVE_CONFIG["map"],
+    )
     record_first_person(
         model,
         output_path,
         report_path,
         model_path=model_path,
+        map_name=map_name,
         steps=args.steps,
         fps=args.fps,
         screen_size=args.screen_size,

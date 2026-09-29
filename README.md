@@ -79,9 +79,18 @@ python cli.py --run-tool analyze.model_evaluate -- --episodes 5
 ## Web Control Center (Docker)
 
 The browser interface mirrors the CLI's main capabilities: it can start new
-training, continue from a discovered model, choose the learning rate, run the
-post-training evaluation and first-person recording sequence, and launch tools
-auto-discovered from `analyze`, `env_check`, `record`, and `statistic`.
+training, continue from a discovered model, choose the learning rate and map,
+run the post-training evaluation and first-person recording sequence, and
+launch tools auto-discovered from `analyze`, `env_check`, `record`, and
+`statistic`.
+
+Each successfully saved model also receives a neighboring
+`<model>.metadata.json` file containing its map. Continued training leaves the
+map field blank by default and reuses that saved value. Checkpoints additionally
+carry the map inside the model ZIP; legacy models without either value fall back
+to the current map in `config.py`. Entering a map during continued training
+overrides and saves the new value. Evaluation and recording automatically use
+the same resolved map.
 
 Build and start the container with:
 
@@ -147,6 +156,15 @@ More serious training:
 ```bash
 python train.py --timesteps 50000 --test-name sc_50k --record-seed 85
 ```
+
+Choose a map explicitly with, for example:
+
+```bash
+python train.py --timesteps 50000 --map XSSORC
+python continue_train.py --model-path models/ppo_metadrive.zip --map SC
+```
+
+Omit `--map` from `continue_train.py` to reuse the model's previous map.
 
 After saving the trained model, `train.py` automatically starts
 `run_model_tests.ps1`. It evaluates the saved model and records one complete

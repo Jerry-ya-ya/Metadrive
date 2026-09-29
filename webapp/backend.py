@@ -11,6 +11,7 @@ from webapp.service import (
     job_manager,
     scan_models,
     tool_inventory,
+    training_defaults,
     training_steps,
 )
 
@@ -34,6 +35,7 @@ class TrainingRequest(BaseModel):
     model_path: str = Field(min_length=1)
     timesteps: int = Field(ge=1)
     learning_rate: float = Field(gt=0)
+    map: str | None = Field(default=None, max_length=128)
     post_test: PostTestRequest = Field(default_factory=PostTestRequest)
 
 
@@ -52,7 +54,7 @@ def model_data(model):
 
 @app.get("/")
 def index():
-    return FileResponse(STATIC_DIR / "index.html")
+    return FileResponse(STATIC_DIR / "index.html", headers={"Cache-Control": "no-store"})
 
 
 @app.get("/api/health")
@@ -68,6 +70,11 @@ def tools():
 @app.get("/api/models")
 def models():
     return scan_models()
+
+
+@app.get("/api/training/defaults")
+def defaults():
+    return training_defaults()
 
 
 @app.get("/api/jobs")

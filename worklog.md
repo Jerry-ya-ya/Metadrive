@@ -43,3 +43,7 @@
 ## 2026/09/28
 
 - Add a containerized web control center for training, model evaluation, recording, and auto-discovered CLI tools on port 4000.
+
+## 2026/09/29
+
+- Add persistent MetaDrive map settings to training and evaluation with a responsive, collapsible web interface.

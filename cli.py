@@ -12,6 +12,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent
 TOOL_PACKAGES = ("analyze", "env_check", "record", "statistic")
 DEFAULT_MODEL_PATH = "models/ppo_metadrive"
+DEFAULT_MAP = "S"
 
 
 @dataclass(frozen=True)
@@ -323,6 +324,7 @@ def run_new_training():
     print("\nNew training")
     timesteps = prompt_int("Training timesteps", 50_000)
     learning_rate = prompt_float("Learning rate", "3e-4")
+    map_name = prompt_text("MetaDrive map", DEFAULT_MAP)
     model_path = prompt_text("Output model path", DEFAULT_MODEL_PATH)
     post_test = prompt_post_test_config()
 
@@ -335,6 +337,8 @@ def run_new_training():
         str(learning_rate),
         "--model-path",
         model_path,
+        "--map",
+        map_name,
         "--skip-post-test",
     ]
     if execute(command) and post_test is not None:
@@ -348,6 +352,7 @@ def run_continued_training():
         return
     timesteps = prompt_int("Additional timesteps", 25_000)
     learning_rate = prompt_float("Learning rate", "1e-4")
+    map_name = prompt_text("Map override (blank = previous model setting)")
     post_test = prompt_post_test_config()
     command = [
         sys.executable,
@@ -359,6 +364,8 @@ def run_continued_training():
         "--learning-rate",
         str(learning_rate),
     ]
+    if map_name:
+        command.extend(["--map", map_name])
     if execute(command) and post_test is not None:
         run_post_training_tests(model_path, post_test)
 

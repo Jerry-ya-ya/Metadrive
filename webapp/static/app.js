@@ -1,4 +1,4 @@
-const state = { view: "training", mode: "new", tools: {}, models: [], jobs: [], selectedTool: null, selectedJob: null };
+const state = { view: "training", mode: "new", defaultMap: "SC", tools: {}, models: [], jobs: [], selectedTool: null, selectedJob: null };
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 
@@ -19,10 +19,25 @@ function toast(message, error = false) {
 
 function switchView(view) {
   state.view = view;
-  $$(".nav-item").forEach((item) => item.classList.toggle("active", item.dataset.view === view));
+  $$(".nav-item").forEach((item) => {
+    const active = item.dataset.view === view;
+    item.classList.toggle("active", active);
+    if (active) item.setAttribute("aria-current", "page");
+    else item.removeAttribute("aria-current");
+  });
   $$(".view").forEach((item) => item.classList.toggle("active", item.id === `view-${view}`));
   const titles = { training: "模型訓練", tools: "工具包", jobs: "工作紀錄" };
   $("#page-title").textContent = titles[view];
+  if (window.matchMedia("(max-width: 600px)").matches) setSidebarCollapsed(true);
+}
+
+function setSidebarCollapsed(collapsed) {
+  $(".app-shell").classList.toggle("sidebar-collapsed", collapsed);
+  const toggle = $("#sidebar-toggle");
+  const label = collapsed ? "展開導覽列" : "折疊導覽列";
+  toggle.setAttribute("aria-label", label);
+  toggle.setAttribute("aria-expanded", String(!collapsed));
+  toggle.title = label;
 }
 
 function setMode(mode) {
@@ -32,6 +47,30 @@ function setMode(mode) {
   $$(".continue-only").forEach((element) => element.classList.toggle("hidden", mode !== "continue"));
   $("#learning-rate").value = mode === "new" ? "0.0003" : "0.0001";
   $("#timesteps").value = mode === "new" ? "50000" : "25000";
+  const mapInput = $("#map-name");
+  mapInput.required = mode === "new";
+  mapInput.value = mode === "new" ? state.defaultMap : "";
+  mapInput.placeholder = mode === "new" ? "例如 SC 或 XSSORC" : "留空沿用模型上次設定";
+  updateMapHint();
+}
+
+async function loadTrainingDefaults() {
+  const defaults = await api("/api/training/defaults");
+  state.defaultMap = defaults.map || "SC";
+  if (state.mode === "new") $("#map-name").value = state.defaultMap;
+  updateMapHint();
+}
+
+function updateMapHint() {
+  const hint = $("#map-hint");
+  if (state.mode === "new") {
+    hint.textContent = `新訓練會保存這個地圖設定；系統預設為 ${state.defaultMap}。`;
+    return;
+  }
+  const selected = state.models.find((model) => model.path === $("#existing-model").value);
+  hint.textContent = selected?.map
+    ? `留空會沿用此模型上次的地圖：${selected.map}。輸入新值才會覆寫。`
+    : `此模型沒有外部地圖紀錄；留空時會讀取模型內設定，舊模型則使用預設 ${state.defaultMap}。`;
 }
 
 async function loadHealth() {
@@ -50,8 +89,9 @@ async function loadModels() {
   $("#model-count").textContent = state.models.length;
   const select = $("#existing-model");
   select.innerHTML = state.models.length
-    ? state.models.map((model) => `<option value="${escapeHtml(model.path)}">${escapeHtml(model.path)} · ${formatBytes(model.size)}</option>`).join("")
+    ? state.models.map((model) => `<option value="${escapeHtml(model.path)}">${escapeHtml(model.path)} · ${model.map ? `地圖 ${escapeHtml(model.map)} · ` : ""}${formatBytes(model.size)}</option>`).join("")
     : '<option value="">沒有找到模型</option>';
+  updateMapHint();
 }
 
 async function loadTools() {
@@ -99,6 +139,7 @@ async function submitTraining(event) {
     model_path: modelPath,
     timesteps: Number($("#timesteps").value),
     learning_rate: Number($("#learning-rate").value),
+    map: $("#map-name").value.trim() || null,
     post_test: {
       enabled: postEnabled,
       test_name: $("#test-name").value.trim() || null,
@@ -168,13 +209,20 @@ function escapeHtml(value) { return String(value ?? "").replace(/[&<>'"]/g, (cha
 function formatBytes(value) { const units = ["B", "KB", "MB", "GB"]; let size = value; let index = 0; while (size >= 1024 && index < units.length - 1) { size /= 1024; index += 1; } return `${size.toFixed(index ? 1 : 0)} ${units[index]}`; }
 
 async function refreshAll() {
-  try { await Promise.all([loadHealth(), loadModels(), loadTools(), loadJobs()]); }
+  try { await Promise.all([loadHealth(), loadTrainingDefaults(), loadModels(), loadTools(), loadJobs()]); }
   catch (error) { toast(error.message, true); }
 }
 
 document.addEventListener("DOMContentLoaded", () => {
+  const displayPort = window.location.port || (window.location.protocol === "https:" ? "443" : "80");
+  $("#api-endpoint").textContent = `API · Port ${displayPort}`;
+  const narrowLayout = window.matchMedia("(max-width: 850px)");
+  setSidebarCollapsed(narrowLayout.matches);
+  narrowLayout.addEventListener("change", (event) => setSidebarCollapsed(event.matches));
+  $("#sidebar-toggle").addEventListener("click", () => setSidebarCollapsed(!$(".app-shell").classList.contains("sidebar-collapsed")));
   $$(".nav-item").forEach((button) => button.addEventListener("click", () => switchView(button.dataset.view)));
   $$(".segmented button").forEach((button) => button.addEventListener("click", () => setMode(button.dataset.mode)));
+  $("#existing-model").addEventListener("change", updateMapHint);
   $("#post-enabled").addEventListener("change", (event) => $$("#post-fields input").forEach((input) => input.disabled = !event.target.checked));
   $("#training-form").addEventListener("submit", submitTraining);
   $("#tool-form").addEventListener("submit", submitTool);

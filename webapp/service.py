@@ -9,6 +9,7 @@ from datetime import datetime
 from pathlib import Path
 
 from cli import discover_tools
+from model_metadata import load_model_metadata
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -70,6 +71,12 @@ def tool_inventory():
     return groups
 
 
+def training_defaults():
+    from config import METADRIVE_CONFIG
+
+    return {"map": str(METADRIVE_CONFIG["map"])}
+
+
 def scan_models():
     models = []
     for folder_name in MODEL_FOLDERS:
@@ -78,11 +85,16 @@ def scan_models():
             continue
         for path in folder.rglob("*.zip"):
             try:
+                try:
+                    metadata = load_model_metadata(path)
+                except (OSError, ValueError):
+                    metadata = {}
                 models.append(
                     {
                         "path": relative_path(path),
                         "size": path.stat().st_size,
                         "modified": path.stat().st_mtime,
+                        "map": metadata.get("map"),
                     }
                 )
             except OSError:
@@ -122,6 +134,7 @@ def training_steps(payload):
     model_value = payload["model_path"]
     timesteps = int(payload["timesteps"])
     learning_rate = float(payload["learning_rate"])
+    map_name = str(payload.get("map") or "").strip()
     if mode not in {"new", "continue"}:
         raise ValueError("Training mode must be new or continue.")
     if timesteps < 1 or learning_rate <= 0:
@@ -157,6 +170,9 @@ def training_steps(payload):
             str(model_path),
         ]
         saved_model = model_path
+
+    if map_name:
+        train_command.extend(["--map", map_name])
 
     steps = [("training", train_command)]
     summary = None
@@ -229,6 +245,7 @@ def training_steps(payload):
                 "======================",
                 f"Test name         : {test_name}",
                 f"Model             : {relative_path(saved_model)}",
+                f"Map               : {map_name or 'stored model setting'}",
                 f"Evaluation report : {relative_path(evaluation_path)}",
                 f"Recording report  : {relative_path(recording_path)}",
                 f"First-person video: {relative_path(video_path)}",
