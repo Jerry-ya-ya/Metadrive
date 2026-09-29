@@ -57,6 +57,11 @@ function setMode(mode) {
 async function loadTrainingDefaults() {
   const defaults = await api("/api/training/defaults");
   state.defaultMap = defaults.map || "SC";
+  const device = defaults.device;
+  const deviceLabel = device?.selected === "cuda" && device.cuda_available
+    ? `GPU · ${device.gpu_name}`
+    : device?.requested === "cuda" ? "GPU 不可用：請檢查 Docker GPU 設定" : "CPU";
+  $("#training-device-status").textContent = `目前訓練裝置：${deviceLabel}`;
   if (state.mode === "new") $("#map-name").value = state.defaultMap;
   updateMapHint();
 }

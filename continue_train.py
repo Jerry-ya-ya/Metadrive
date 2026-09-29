@@ -3,13 +3,13 @@
 import argparse
 from pathlib import Path
 
-import torch
 from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import CheckpointCallback
 
 from config import MODEL_DIR, CHECKPOINT_DIR, LOG_DIR, MODEL_PATH, METADRIVE_CONFIG
 from env_utils import build_vec_env
 from model_metadata import resolve_model_map, save_model_metadata, saved_model_path
+from training_device import select_training_device
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent
@@ -38,7 +38,7 @@ def main():
     CHECKPOINT_DIR.mkdir(exist_ok=True)
     LOG_DIR.mkdir(exist_ok=True)
 
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    device = select_training_device()
     print(f"Using device: {device}")
 
     model_path = resolve_model_path(args.model_path)

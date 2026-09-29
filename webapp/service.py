@@ -87,8 +87,9 @@ def tool_inventory():
 
 def training_defaults():
     from config import METADRIVE_CONFIG
+    from training_device import device_status
 
-    return {"map": str(METADRIVE_CONFIG["map"])}
+    return {"map": str(METADRIVE_CONFIG["map"]), "device": device_status()}
 
 
 def scan_models():

@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>MetaDrive PPO Control Center</title>
-  <link rel="stylesheet" href="/assets/styles.css?v=training-retry-1">
+  <link rel="stylesheet" href="/assets/styles.css?v=gpu-training-1">
 </head>
 <body>
   <div class="app-shell">
@@ -42,6 +42,7 @@
             <span class="pill">TRAINING PIPELINE</span>
             <h2>建立一次可追蹤的訓練流程</h2>
             <p>選擇全新模型或既有 checkpoint，完成後自動接續評分與第一人稱錄影。</p>
+            <p id="training-device-status" role="status">正在檢查訓練裝置…</p>
           </div>
           <div class="hero-metric"><strong id="model-count">0</strong><span>可用模型</span></div>
         </div>
@@ -126,6 +127,6 @@
     </main>
   </div>
   <div id="toast" class="toast"></div>
-  <script src="/assets/app.js?v=training-retry-1" defer></script>
+  <script src="/assets/app.js?v=gpu-training-1" defer></script>
 </body>
 </html>

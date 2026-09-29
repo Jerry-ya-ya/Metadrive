@@ -3,7 +3,8 @@ services:
     build:
       context: .
       args:
-        TORCH_INDEX_URL: ${TORCH_INDEX_URL:-https://download.pytorch.org/whl/cpu}
+        TORCH_INDEX_URL: ${TORCH_INDEX_URL:-https://download.pytorch.org/whl/cu130}
+    gpus: all
     ports:
       - "127.0.0.1:4202:4000"
     volumes:
@@ -16,5 +17,6 @@ services:
       - ./videos:/app/videos
     environment:
       PYTHONUNBUFFERED: "1"
+      TRAIN_DEVICE: cuda
     shm_size: "2gb"
     restart: unless-stopped

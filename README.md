@@ -95,12 +95,22 @@ the same resolved map.
 Build and start the container with:
 
 ```bash
-docker compose up --build
+docker compose up --build -d
 ```
 
-The default image installs the CPU PyTorch wheel to keep the image portable and
-avoid bundling several gigabytes of CUDA libraries. To use a compatible custom
-PyTorch wheel index, set `TORCH_INDEX_URL` before building the image.
+The default image installs the CUDA 13.0 PyTorch wheel and Compose grants the
+container access to all NVIDIA GPUs. On Windows, Docker Desktop must use the
+WSL 2 backend with current NVIDIA drivers. Verify GPU access after starting:
+
+```bash
+docker compose exec metadrive-web python check_cuda.py
+```
+
+The training page displays the detected GPU. Container training sets
+`TRAIN_DEVICE=cuda`, so missing CUDA support fails clearly instead of silently
+running on CPU. For a CPU-only deployment, change Compose to use the CPU wheel
+index, remove `gpus: all`, and set `TRAIN_DEVICE=cpu`. Local CLI training keeps
+automatic device selection unless `TRAIN_DEVICE` is explicitly set.
 
 Then open:
 

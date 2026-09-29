@@ -1,6 +1,7 @@
 FROM python:3.11-slim-bookworm
 
-ARG TORCH_INDEX_URL=https://download.pytorch.org/whl/cpu
+ARG TORCH_INDEX_URL=https://download.pytorch.org/whl/cu130
+ARG TORCH_VERSION=2.14.0
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -24,7 +25,7 @@ RUN apt-get update \
 
 COPY requirements.txt ./
 RUN python -m pip install --upgrade pip \
-    && python -m pip install --index-url "${TORCH_INDEX_URL}" torch \
+    && python -m pip install --index-url "${TORCH_INDEX_URL}" "torch==${TORCH_VERSION}" \
     && python -m pip install -r requirements.txt
 
 RUN python -c "from metadrive.pull_asset import pull_asset; pull_asset(update=False)"
