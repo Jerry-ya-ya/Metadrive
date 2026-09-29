@@ -12,6 +12,7 @@ from config import MODEL_DIR, CHECKPOINT_DIR, LOG_DIR, MODEL_PATH, METADRIVE_CON
 from env_utils import build_vec_env
 from model_metadata import save_model_metadata, saved_model_path
 from training_device import select_training_device
+from training_progress import training_callbacks
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent
@@ -146,11 +147,13 @@ def main():
         save_path=str(CHECKPOINT_DIR),
         name_prefix="ppo_metadrive",
     )
+    callbacks = training_callbacks(checkpoint_callback, args.timesteps)
 
     try:
+        print("Starting PPO training and collecting environment steps...", flush=True)
         model.learn(
             total_timesteps=args.timesteps,
-            callback=checkpoint_callback,
+            callback=callbacks,
             progress_bar=True,
         )
 

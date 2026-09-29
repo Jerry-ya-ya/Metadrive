@@ -18,5 +18,7 @@ services:
     environment:
       PYTHONUNBUFFERED: "1"
       TRAIN_DEVICE: cuda
+      # Xvfb has no GPU OpenGL path on Docker Desktop/WSL; llvmpipe can stall in MetaDrive reset().
+      GALLIUM_DRIVER: softpipe
     shm_size: "2gb"
     restart: unless-stopped

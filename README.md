@@ -112,6 +112,14 @@ running on CPU. For a CPU-only deployment, change Compose to use the CPU wheel
 index, remove `gpus: all`, and set `TRAIN_DEVICE=cpu`. Local CLI training keeps
 automatic device selection unless `TRAIN_DEVICE` is explicitly set.
 
+Compose also sets `GALLIUM_DRIVER=softpipe` for MetaDrive's offscreen RGB
+rendering under Xvfb. On Docker Desktop/WSL, the default Mesa `llvmpipe`
+renderer can spend minutes in `env.reset()`; this setting changes only the
+container's OpenGL renderer, not the map, 84×84 camera observations, PPO
+hyperparameters, or CUDA device used for neural-network training.
+The Web Jobs log reports environment-step progress every five steps, since PPO
+does not update its policy until it has collected a complete rollout.
+
 Then open:
 
 ```text
